@@ -24,7 +24,7 @@ one `Source`, one `Operator` and one `Sink`. Because `Operators` are just functi
 compose multiple `Operators` to a single one. For this we provide helper functions for ease of use. See: `pypipe.processing.composition` and `pypipe.processing.compose_list`.
 For allowing a more concise syntax, you can write: 
 
-    composed = op1 | op2 | op3
+    composed = op1 - op2 - op3
 
 ##### Context    
 An important aspect for us is the configurability of each individual nodes.
