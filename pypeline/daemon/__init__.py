@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import pypeline.processing.registry as registry
 from pypeline.processing import Sink, Source, Operator, compose_list
-from pypeline.processing.pipe import SequentialTopology, SequentialPipe
+from pypeline.processing.sync import SequentialTopology, SequentialPipe
 
 logger = logging.getLogger(__name__)
 

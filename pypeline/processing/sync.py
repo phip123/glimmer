@@ -10,7 +10,7 @@ Out = TypeVar("Out")
 
 
 @dataclass
-class SequentialTopology(Topology, Generic[Result, Out]):
+class SynchronousTopology(Topology, Generic[Result, Out]):
     """
     source: the source the env will read from
     operator: the operator the pipe will use for transforming the data
@@ -20,20 +20,20 @@ class SequentialTopology(Topology, Generic[Result, Out]):
     sink: Sink[Out]
 
 
-class SequentialPipe(Environment, Generic[Result, Out]):
+class SynchronousPipe(Environment, Generic[Result, Out]):
     """
     This pipe will call each operator one after another without any kind of parallelism.
     Which  means, that blocking operators will bring the whole pipeline to a halt.
     """
 
-    def __init__(self, topology: SequentialTopology[Result, Out], stop: threading.Event = None,
+    def __init__(self, topology: SynchronousTopology[Result, Out], stop: threading.Event = None,
                  logger=logging.getLogger(__name__)):
         """
         Initializes a pipe
 
         :param stop: in case the event is set, the env will stop executing and close the source and sink
         """
-        super(SequentialPipe, self).__init__(topology)
+        super(SynchronousPipe, self).__init__(topology)
         self.source = self.topology.source
         self.operator = self.topology.operator
         self.sink = self.topology.sink
