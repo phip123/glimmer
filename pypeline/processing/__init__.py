@@ -85,7 +85,7 @@ class Node(abc.ABC):
     def __init__(self, ctx: Context=None) -> None:
         super().__init__()
         self.ctx = ctx or Context(config_name=self.name)
-        self.logger = ctx.create_logger(self.name)
+        self.logger = self.ctx.create_logger(self.name)
 
     def open(self):
         """Opens any necessary connections
