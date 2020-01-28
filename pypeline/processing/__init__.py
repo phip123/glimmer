@@ -109,7 +109,7 @@ class Node(abc.ABC):
         Adds passed nodes or functions as output receiving nodes
         """
         self._add(other, self._register_output_node, self._register_output_function)
-        return self
+        return other
 
     def receive_from(self, other):
         """
@@ -134,8 +134,7 @@ class Node(abc.ABC):
         """
         Adds passed nodes or functions as output receiving nodes
         """
-        self.send_to(other)
-        return other
+        return self.send_to(other)
 
     @staticmethod
     def _add(other, register_node, register_func):
