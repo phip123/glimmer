@@ -3,7 +3,7 @@ import threading
 from dataclasses import dataclass
 from typing import TypeVar, Generic
 
-from pypeline.processing import Source, Operator, Sink, Environment, Topology
+from pypeline.processing import Source, Operator, Sink, Environment, Topology, InvalidTopologyError, compose_list
 
 Result = TypeVar("Result")
 Out = TypeVar("Out")
@@ -20,7 +20,22 @@ class SynchronousTopology(Topology, Generic[Result, Out]):
     sink: Sink[Out]
 
 
-class SynchronousPipe(Environment, Generic[Result, Out]):
+def mk_synchronous_topology(source: Source):
+    curr = source
+    operators = []
+    while len(curr.outputs) > 0:
+        if len(curr.outputs) != 1:
+            raise InvalidTopologyError(
+                f'Nodes in synchronous topologies can only have one output, was: {len(curr.outputs)}')
+        else:
+            curr = curr.outputs[0]
+            operators.append(curr)
+    sink = curr
+    composed = compose_list(operators)
+    return SynchronousTopology(source, composed, sink)
+
+
+class SynchronousEnvironment(Environment, Generic[Result, Out]):
     """
     This pipe will call each operator one after another without any kind of parallelism.
     Which  means, that blocking operators will bring the whole pipeline to a halt.
@@ -33,7 +48,7 @@ class SynchronousPipe(Environment, Generic[Result, Out]):
 
         :param stop: in case the event is set, the env will stop executing and close the source and sink
         """
-        super(SynchronousPipe, self).__init__(topology)
+        super(SynchronousEnvironment, self).__init__(topology)
         self.source = self.topology.source
         self.operator = self.topology.operator
         self.sink = self.topology.sink

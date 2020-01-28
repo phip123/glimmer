@@ -1,16 +1,13 @@
 import logging
 import multiprocessing
 import threading
-import time
 from dataclasses import dataclass
-from typing import TypeVar, Generic, List, Tuple
+from typing import TypeVar, Generic, List, Tuple, Callable
 
-from pypeline.processing import Topology, Operator, Source, Sink, Node
+from pypeline.processing import Topology, Operator, Source, Sink, Node, Executable
 
 Result = TypeVar("Result")
 Out = TypeVar("Out")
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -116,7 +113,7 @@ class OperatorWrapper:
         self.out_qs = out_qs
 
     def run(self, stop: threading.Event):
-        logger.debug(f'start operator {self.op.name}')
+        self.op.logger.debug(f'start operator {self.op.name}')
         self.op.open()
         while not stop.is_set():
             try:
@@ -154,7 +151,7 @@ class SinkWrapper:
         self.in_qs = in_qs
 
     def run(self, stop: threading.Event):
-        logger.debug(f'start sink {self.sink.name}')
+        self.sink.logger.debug(f'start sink {self.sink.name}')
         self.sink.open()
         while not stop.is_set():
             try:
@@ -185,7 +182,7 @@ class SourceWrapper:
         self.out_qs = out_qs
 
     def run(self, event: multiprocessing.Event):
-        logger.debug(f'start source {self.source.name}')
+        self.source.logger.debug(f'start source {self.source.name}')
         while not event.is_set():
             try:
                 def publish(item):
@@ -204,89 +201,46 @@ class SourceWrapper:
         self.source.read(out)
 
 
-class ParallelPipe(Generic[Result, Out]):
-    """This pipe will execute each node in its own thread. Nodes communicate via multiprocessing.Queue instances
+class ParallelEnvironment(Generic[Result, Out]):
+    """This environment will execute each node in its own thread. Nodes communicate via multiprocessing.Queue instances
     to publish and receive data. This allows to let each node work at its own pace
     """
 
-    def __init__(self, topology: ParallelTopology, stop: threading.Event, logger=logging.getLogger(__name__)):
+    def __init__(self, topology: ParallelTopology, stop: threading.Event,
+                 task_factory: Callable[[Node, threading.Event], Executable], logger: logging.Logger = None):
         """
-        Initializes the pipe
+        Initializes the environment
         :param topology: the topology that will be executed
         :param stop: if this event is, the pipe will stop processing and close all nodes
+        :param task_factory: factory function that produces from a node and a stop event an executable,
+                            i.e.: multiprocessing.Process or threading.Thread
         :param logger
         """
+        if logger is None:
+            logger = logging.getLogger(__name__)
         self.topology = topology
+        self.task_factory = task_factory
         self.logger = logger
         self.stop = stop
 
     def execute(self):
         processes = []
         stops = []
-        for op in self.topology.operators:
-            stop = threading.Event()
-            processes.append(multiprocessing.Process(target=op.run, args=(stop,)))
-            stops.append(stop)
+        all_nodes = self.topology.operators
+        all_nodes.extend(self.topology.sources)
+        all_nodes.extend(self.topology.sinks)
 
-        for sink in self.topology.sinks:
+        for node in all_nodes:
             stop = threading.Event()
-            processes.append(multiprocessing.Process(target=sink.run, args=(stop,)))
-            stops.append(stop)
-
-        for source in self.topology.sources:
-            stop = threading.Event()
-            processes.append(multiprocessing.Process(target=source.run, args=(stop,)))
+            processes.append(self.task_factory(node, stop))
             stops.append(stop)
 
         for p in processes:
             p.start()
 
-        logger.debug('Started topology')
+        self.logger.debug('Started topology')
         self.stop.wait()
-        logger.debug('Received stop signal, stopping all processes')
+        self.logger.debug('Received stop signal, stopping all processes')
         for stop, p in zip(stops, processes):
             stop.set()
             p.join(timeout=5)
-
-
-def mk_src(func, node_name: str = None) -> Node:
-    if node_name is None:
-        node_name = f'op-{str(time.time_ns())[5:-5]}'
-
-    class FuncSource(Source):
-        name = node_name
-
-        def read(self, out):
-            out(func())
-
-    return FuncSource()
-
-
-def mk_sink(func, node_name: str = None) -> Node:
-    if node_name is None:
-        node_name = f'op-{str(time.time_ns())[5:-5]}'
-
-    class FuncSink(Sink):
-        name = node_name
-
-        def write(self, data):
-            func(data)
-
-    return FuncSink()
-
-
-def mk_op(func, node_name: str = None) -> Node:
-    if node_name is None:
-        node_name = f'op-{str(time.time_ns())[5:-5]}'
-
-    class FuncOp(Operator):
-        name = node_name
-
-        def apply(self, data, out):
-            out(func(data))
-
-    return FuncOp()
-
-
-def mk_env(top: ParallelTopology) -> ParallelPipe:
-    return ParallelPipe(top, threading.Event())

@@ -12,6 +12,14 @@ B = TypeVar("B")
 C = TypeVar("C")
 
 
+class InvalidTopologyError(Exception):
+    """Exception raised in case the topology is invalid
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+
 class EnvironmentExecutionError(Exception):
     """Exception raised for errors that happened during executing an environment
     """
@@ -54,7 +62,7 @@ class OperatorError(EnvironmentExecutionError):
         self.message = message
 
 
-class ReadError(EnvironmentError):
+class ReadError(EnvironmentExecutionError):
     """Exception raised in case reading from source fails
     Attributes:
         name -- name of source
@@ -66,7 +74,7 @@ class ReadError(EnvironmentError):
         self.message = message
 
 
-class WriteError(EnvironmentError):
+class WriteError(EnvironmentExecutionError):
     """Exception raised in case writing into sink fails
     Attributes:
         name -- name of sink
@@ -270,3 +278,14 @@ def compose_list(operators: List[Operator]) -> Operator:
         for op in operators[2:]:
             composed = composed | compose | op
         return composed
+
+
+class Executable(abc.ABC):
+    """Represents a joinable process which starts a node
+    """
+
+    def start(self):
+        raise NotImplementedError
+
+    def join(self, timeout):
+        raise NotImplementedError

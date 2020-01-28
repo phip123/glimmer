@@ -4,7 +4,7 @@ import threading
 import os
 
 from pypeline.processing.operator import LogOperator
-from pypeline.processing.sync import SynchronousPipe, SynchronousTopology
+from pypeline.processing.sync import SynchronousEnvironment, SynchronousTopology
 from examples.mock_nodes import DevSource, DevSink, DevOperator, DevAvgOperator
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class MockApp:
         stop = threading.Event()
         env = None
         try:
-            env = SynchronousPipe(topology, stop)
+            env = SynchronousEnvironment(topology, stop)
             env.execute()
         except KeyboardInterrupt:
             stop.set()
