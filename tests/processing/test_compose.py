@@ -1,13 +1,13 @@
 import unittest
 
-from pypeline.processing import Operator, In, Out, composition
+from pypeline.processing import Operator, In, composition
 
 
 class Op(Operator):
     name = 'Op'
 
-    def apply(self, data: In) -> Out:
-        return data
+    def apply(self, data: In, out):
+        out(data)
 
 
 class CompositionTest(unittest.TestCase):
@@ -16,4 +16,4 @@ class CompositionTest(unittest.TestCase):
         op1 = Op()
         op2 = Op()
         composed = composition(op1, op2)
-        self.assertEqual('asdf', composed.apply('asdf'))
+        composed.apply('asdf', lambda data: self.assertEqual('asdf', data))

@@ -1,6 +1,5 @@
 import abc
-import typing
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Dict, List, Callable
 
 from pypeline.util import Infix
 from pypeline.util.context import Context
@@ -81,11 +80,15 @@ class WriteError(EnvironmentError):
 
 class Node(abc.ABC):
     name: str
+    inputs: Dict[str, 'Node']
+    outputs: Dict[str, 'Node']
 
-    def __init__(self, ctx: Context=None) -> None:
+    def __init__(self, ctx: Context = None) -> None:
         super().__init__()
         self.ctx = ctx or Context(config_name=self.name)
         self.logger = self.ctx.create_logger(self.name)
+        self.inputs = dict()
+        self.outputs = dict()
 
     def open(self):
         """Opens any necessary connections
@@ -101,10 +104,76 @@ class Node(abc.ABC):
         """
         pass
 
+    def send_to(self, other):
+        """
+        Adds passed nodes or functions as output receiving nodes
+        """
+        self._add(other, self._register_output_node, self._register_output_function)
+        return self
+
+    def receive_from(self, other):
+        """
+        Adds passed nodes or functions as as input for this node
+        """
+        self._add(other, self._register_input_node, self._register_input_function)
+        return self
+
+    def __gt__(self, other):
+        """
+        Adds passed nodes or functions as output receiving nodes
+        """
+        return self.send_to(other)
+
+    def __lt__(self, other):
+        """
+        Adds passed nodes or functions as as input for this node
+        """
+        return self.receive_from(other)
+
+    def __or__(self, other):
+        """
+        Adds passed nodes or functions as output receiving nodes
+        """
+        self.send_to(other)
+        return other
+
+    @staticmethod
+    def _add(other, register_node, register_func):
+        if isinstance(other, List):
+            for n in other:
+                if isinstance(n, Callable):
+                    register_func(n)
+                elif isinstance(n, Node):
+                    register_node(n)
+                else:
+                    raise AttributeError('Argument not supported as receiver')
+        elif isinstance(other, Node):
+            register_node(other)
+        elif isinstance(other, Callable):
+            register_func(other)
+        else:
+            raise AttributeError('Argument not supported as receiver')
+
+    def _register_input_node(self, node: 'Node'):
+        self.inputs[node.name] = node
+        node.outputs[self.name] = self
+
+    def _register_input_function(self, f):
+        # TODO implement
+        raise NotImplementedError
+
+    def _register_output_function(self, node):
+        # TODO implement
+        raise NotImplementedError
+
+    def _register_output_node(self, node: 'Node'):
+        self.outputs[node.name] = node
+        node.inputs[self.name] = self
+
 
 class Source(Node, Generic[Result]):
 
-    def read(self) -> Result:
+    def read(self, out: Callable[[Result], None]):
         """Reads from the source, type of return value depends on implementation
         :raises:
             ReadError
@@ -126,7 +195,7 @@ class Sink(Node, Generic[In]):
 
 class Operator(Node, Generic[In, Out]):
 
-    def apply(self, data: In) -> Out:
+    def apply(self, data: In, out: Callable[[Out], None]):
         """Consumes data, possible transforms it, and returns data
         :raises:
             OperatorError: in case there is an error during application
@@ -135,6 +204,7 @@ class Operator(Node, Generic[In, Out]):
         raise NotImplementedError
 
     def __sub__(self, other):
+        self.__gt__(other)
         return composition(self, other)
 
     def pretty_string(self) -> str:
@@ -167,17 +237,15 @@ def composition(op_1: Operator[A, B], op_2: Operator[B, C], fail_fast: bool = Tr
     If it is set to true, the second function will not be called.
     """
 
-    def f(x):
-        value = op_1.apply(x)
-        if fail_fast and value is None:
-            return None
-        return op_2.apply(value)
-
     class ComposedOperator(Operator[A, C]):
         name = f"({op_1.name} -> {op_2.name})"
 
-        def apply(self, data: A) -> C:
-            return f(data)
+        def apply(self, data: A, out: Callable[[C], None]):
+            def out_f(data_f):
+                if not (fail_fast and data_f is None):
+                    op_2.apply(data_f, out)
+
+            op_1.apply(data, out_f)
 
         def open(self):
             op_1.open()
@@ -193,7 +261,7 @@ def composition(op_1: Operator[A, B], op_2: Operator[B, C], fail_fast: bool = Tr
 compose = Infix(composition)
 
 
-def compose_list(operators: typing.List[Operator]) -> Operator:
+def compose_list(operators: List[Operator]) -> Operator:
     if len(operators) == 1:
         return operators[0]
     elif len(operators) == 0:

@@ -1,11 +1,12 @@
 import logging
+import os
 import threading
 
+from examples.mock_nodes import DevAvgOperator, DevOperator, DevSource, DevSink
 from pypeline.daemon import ControllerDaemon
 from pypeline.processing import registry
 from pypeline.processing.operator import LogOperator
 from pypeline.util.context import Context
-from examples.mock_nodes import DevAvgOperator, DevOperator, DevSource, DevSink
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ def main_raw_custom_registry():
     registry.register_source(DevSource(Context(config_name=DevSource.name)))
     registry.register_sink(DevSink(Context(config_name=DevSink.name)))
     registry.register_operator(LogOperator())
+
+    os.environ['home_controller_sleep'] = '2'
+    os.environ['home_controller_host'] = 'localhost'
 
     # registry only knows nodes that are registered above
     daemon = None

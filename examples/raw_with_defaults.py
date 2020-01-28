@@ -1,9 +1,9 @@
 import logging
+import os
 import threading
 
 from pypeline.daemon import ControllerDaemon
 from pypeline.processing import registry
-from pypeline.processing.rds import RedisSource
 from pypeline.util.context import Context
 from examples.mock_nodes import DevAvgOperator, DevOperator, DevSource, DevSink
 
@@ -21,13 +21,8 @@ def main_raw_with_defaults():
     registry.register_source(DevSource(Context(config_name=DevSource.name)))
     registry.register_sink(DevSink(Context(config_name=DevSink.name)))
 
-    # Register default nodes (redis source, rabbitmq sink)
-
-    # if you want the nodes to have speific contexts (different than os.environ, make sure you load them first)
-    redis_context = Context(config_name=RedisSource.name)
-    contexts = dict()
-    contexts[RedisSource.name] = redis_context
-    registry.init_defaults(contexts=contexts)
+    os.environ['home_controller_sleep'] = '2'
+    os.environ['home_controller_host'] = 'localhost'
 
     # registry  knows custom nodes and all default nodes
     daemon = None

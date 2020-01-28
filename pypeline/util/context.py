@@ -3,8 +3,6 @@ import logging.config
 import os
 from typing import MutableMapping, Dict
 
-import pika
-import redis
 import yaml
 from flatten_dict import flatten
 
@@ -17,22 +15,6 @@ class Context:
 
        - Logging
             - home_controller_log_level (DEBUG|INFO|WARN| ... )
-
-       - Redis connection:
-            - home_controller_redis_host (localhost)
-            - home_controller_redis_port (6379)
-            - home_controller_redis_base_key
-
-       - RabbitMQ connection:
-            - home_controller_rabbitmq_user
-            - home_controller_rabbitmq_password
-            - home_controller_rabbitmq_host (localhost)
-            - home_controller_rabbitmq_port (5672)
-            - home_controller_rabbitmq_exchange
-            - home_controller_rabbitmq_routing_key
-
-       - Measurement service:
-            - home_controller_measurement_service_type (redis)
        """
 
     def __init__(self, env: MutableMapping = os.environ, config: dict = None, config_name: str = None, logging_config: Dict = None):
@@ -53,27 +35,6 @@ class Context:
 
     def create_logger(self, name: str) -> logging.Logger:
         return logging.getLogger(name)
-
-    def create_redis(self) -> redis.Redis:
-        params = {
-            'host': self.getenv('redis_host', 'localhost'),
-            'port': int(self.getenv('redis_port', '6379')),
-            'decode_responses': True,
-        }
-
-        return redis.Redis(**params)
-
-    def get_redis_base_key(self):
-        return self.getenv('redis_base_key')
-
-    def create_rabbit_connection(self) -> pika.adapters.BlockingConnection:
-        credentials = pika.PlainCredentials(self.getenv('rabbitmq_user'),
-                                            self.getenv('rabbitmq_password'))
-        parameters = pika.ConnectionParameters(self.getenv('rabbitmq_host', 'localhost'),
-                                               self.getenv('rabbitmq_port', 5672),
-                                               '/',
-                                               credentials)
-        return pika.BlockingConnection(parameters=parameters)
 
 
 def merge(ctx: Context, config: dict):

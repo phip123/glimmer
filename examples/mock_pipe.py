@@ -1,6 +1,7 @@
 import logging
 import sys
 import threading
+import os
 
 from pypeline.processing.operator import LogOperator
 from pypeline.processing.sync import SynchronousPipe, SynchronousTopology
@@ -18,6 +19,8 @@ class MockApp:
         op1 = DevOperator()
         op2 = DevAvgOperator()
         op3 = LogOperator()
+        os.environ['home_controller_sleep'] = '2'
+        os.environ['home_controller_host'] = 'localhost'
         composed = op1 - op2 - op3
         topology = SynchronousTopology(source, composed, sink)
 

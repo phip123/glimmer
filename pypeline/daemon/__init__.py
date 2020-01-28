@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import pypeline.processing.registry as registry
 from pypeline.processing import Sink, Source, Operator, compose_list
-from pypeline.processing.sync import SequentialTopology, SequentialPipe
+from pypeline.processing.sync import SynchronousPipe, SynchronousTopology
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ class ControllerDaemon:
             if len(self.operators) > 0:
                 composed = compose_list(self.operators)
 
-            self.topology = SequentialTopology(self.source, composed, self.sink)
-            self.env = SequentialPipe(self.topology, self.stop)
+            self.topology = SynchronousTopology(self.source, composed, self.sink)
+            self.env = SynchronousPipe(self.topology, self.stop)
             self.env.execute()
         else:
             logger.error("No sink and/or source specified")

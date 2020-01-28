@@ -1,9 +1,7 @@
-from typing import Optional, Dict, Type
+from typing import Optional, Dict
 
 from pypeline.processing import Sink, Operator, Source
-from pypeline.processing.operator import LogOperator, RedisMessageToDictOperator, ToJsonOperator
-from pypeline.processing.rabbitmq import RabbitMqSink
-from pypeline.processing.rds import RedisSource, RedisPublisherSink, SleepingRedisSource
+from pypeline.processing.operator import LogOperator, ToJsonOperator
 from pypeline.processing.sink import NoopSink
 from pypeline.util.context import Context
 
@@ -35,10 +33,6 @@ def get_source(name: str) -> Optional[Source]:
 def get_operator(name: str) -> Optional[Operator]:
     return operators.get(name)
 
-def create_and_register_operator(operator: Type) -> bool:
-    """
-    """
-
 
 def init_defaults(ctx: Context = None, contexts: Dict[str, Context] = None):
     """
@@ -52,22 +46,6 @@ def init_defaults(ctx: Context = None, contexts: Dict[str, Context] = None):
         context = contexts.get(LogOperator.name, ctx)
         register_operator(LogOperator(ctx=context))
 
-    if not get_operator(RedisMessageToDictOperator.name):
-        context = contexts.get(RedisMessageToDictOperator.name, ctx)
-        register_operator(RedisMessageToDictOperator(ctx=context))
-
-    if not get_source(RedisSource.name):
-        context = contexts.get(RedisSource.name, ctx)
-        register_source(RedisSource(ctx=context))
-
-    if not get_source(SleepingRedisSource.name):
-        context = contexts.get(SleepingRedisSource.name, ctx)
-        register_source(SleepingRedisSource(ctx=context))
-
-    if not get_sink(RabbitMqSink.name):
-        context = contexts.get(RabbitMqSink.name, ctx)
-        register_sink(RabbitMqSink(ctx=context))
-
     if not get_sink(NoopSink.name):
         context = contexts.get(NoopSink.name, ctx)
         register_sink(NoopSink(ctx=context))
@@ -75,7 +53,3 @@ def init_defaults(ctx: Context = None, contexts: Dict[str, Context] = None):
     if not get_operator(ToJsonOperator.name):
         context = contexts.get(ToJsonOperator.name)
         register_operator(ToJsonOperator(ctx=context))
-
-    if not get_sink(RedisPublisherSink.name):
-        context = contexts.get(RedisPublisherSink.name)
-        register_sink(RedisPublisherSink(ctx=context))

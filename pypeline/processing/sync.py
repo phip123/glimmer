@@ -61,20 +61,24 @@ class SynchronousPipe(Environment, Generic[Result, Out]):
         self.logger.info(f'start executing following topology: {self.pretty_string()}')
         self.open()
         while not self.stop.is_set():
-            data: Result = self.source.read()
-            if skip_none and data is None:
-                self.logger.warning('Source returned None')
-                continue
 
-            self.logger.debug(f'process data: {data}')
-            data: Out = self.operator.apply(data)
-            if skip_none and data is None:
-                self.logger.warning('Operator returned None')
-                continue
+            def op_out(data):
+                if skip_none and data is None:
+                    self.logger.warning('Operator returned None')
 
-            self.logger.debug(f'data after applying {self.operator.name}: {data}')
-            self.logger.debug('write data to sink')
-            self.sink.write(data)
+                self.logger.debug(f'data after applying {self.operator.name}: {data}')
+                self.logger.debug('write data to sink')
+                self.sink.write(data)
+
+            def read_out(data):
+                if skip_none and data is None:
+                    self.logger.warning('Source returned None')
+
+                self.logger.debug(f'process data: {data}')
+                self.operator.apply(data, op_out)
+
+            self.source.read(read_out)
+
         self.close()
 
     def pretty_string(self):

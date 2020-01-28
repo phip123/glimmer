@@ -33,21 +33,21 @@ class DevAvgOperator(Operator[DevIdReading, DevIdReading]):
     name = 'dev_avg'
     last = None
 
-    def apply(self, data: DevIdReading) -> DevIdReading:
+    def apply(self, data: DevIdReading, out):
         if self.last:
             avg = (data.reading.value + self.last) / 2
         else:
             avg = data.reading.value
         self.last = avg
-        return DevIdReading(data.id, DevReading(avg, data.reading.unit, data.reading.time))
+        out(DevIdReading(data.id, DevReading(avg, data.reading.unit, data.reading.time)))
 
 
 class DevOperator(Operator[DevMessage, DevIdReading]):
     name = 'dev_op'
 
-    def apply(self, msg: DevMessage) -> DevIdReading:
+    def apply(self, msg: DevMessage, out):
         reading = json.loads(msg.data)
-        return DevIdReading(msg.id, DevReading(**reading))
+        out(DevIdReading(msg.id, DevReading(**reading)))
 
 
 class DevSink(Sink):
@@ -85,8 +85,8 @@ class DevSource(Source[Optional[DevMessage]]):
         DevMessage('id5', json.dumps(readings[4], cls=EnhancedJSONEncoder))
     ]
 
-    def read(self) -> Optional[DevMessage]:
-        time.sleep(self.ctx.getenv('sleep'))
+    def read(self, out):
+        time.sleep(int(self.ctx.getenv('sleep')))
         msg = self.data[self.index % len(self.data)]
         self.index += 1
-        return msg
+        out(msg)
