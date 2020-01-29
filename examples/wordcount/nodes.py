@@ -55,6 +55,6 @@ class WordsSource(Source[str]):
 
     def read(self, out: Callable[[str], None]):
         if self.idx < len(self.lines):
-            self.idx += 1
             out(self.lines[self.idx])
+            self.idx += 1
             sleep(1)
