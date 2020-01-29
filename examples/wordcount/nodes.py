@@ -54,6 +54,7 @@ class WordsSource(Source[str]):
         self.idx = 0
 
     def read(self, out: Callable[[str], None]):
+        print(f'Open file: {self.ctx.getenv("file")}')
         if self.idx < len(self.lines):
             out(self.lines[self.idx])
             self.idx += 1

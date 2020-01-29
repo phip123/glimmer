@@ -2,6 +2,7 @@ import threading
 
 import pypeline.processing.factory as factory
 from examples.wordcount.nodes import WordsSource, FlatmapLines, MapWords, Reducer
+from pypeline.util.context import Context
 
 
 def main():
@@ -11,13 +12,21 @@ def main():
     
     words -> separate-lines -> filter-empty -> flatmap-lines -> map-words -> reducer -> printing-sink 
     """
-    words = WordsSource()
+
+    # For passing values to nodes, you have to use the config object
+    source_config = {
+        'file': 'taxi_data.csv'
+    }
+
+    words = WordsSource(Context(config=source_config))
     separate_lines = factory.mk_op(lambda x: x.split(' '), 'separate-lines')
     filter_empty = factory.mk_op(lambda x: x if len(x) > 0 else None)
     flatmap = FlatmapLines()
     map_words = MapWords()
     reducer = Reducer()
     sink = factory.mk_sink(print, 'printing-sink')
+
+    # Connect nodes
     (words
      | separate_lines
      | flatmap
@@ -28,6 +37,8 @@ def main():
      )
 
     stop = threading.Event()
+
+    # We can deduce from the source all other nodes
     env = factory.mk_parallel_env([words], stop=stop)
     try:
         env.execute()
