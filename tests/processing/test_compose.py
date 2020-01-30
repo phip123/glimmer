@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 
 from pypeline.processing import Operator, In, composition
 
@@ -16,4 +17,6 @@ class CompositionTest(unittest.TestCase):
         op1 = Op()
         op2 = Op()
         composed = composition(op1, op2)
-        composed.apply('asdf', lambda data: self.assertEqual('asdf', data))
+        mock = Mock()
+        composed.apply('asdf', mock)
+        mock.assert_called_with('asdf')
