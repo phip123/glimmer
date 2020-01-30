@@ -39,7 +39,11 @@ def main():
     stop = threading.Event()
 
     # We can deduce from the source all other nodes
-    env = factory.mk_parallel_env([words], stop=stop)
+    # This creates a topology that will be executed synchronously
+    env = factory.mk_synchronous_env(words, stop=stop)
+
+    # In case you would like to have all nodes executed in separated threads or processes:
+    # env = factory.mk_parallel_env([words], stop=stop)
     try:
         env.execute()
     except KeyboardInterrupt:
