@@ -1,7 +1,6 @@
 import abc
 from typing import TypeVar, Generic, Dict, List, Callable
 
-from pypeline.util import Infix
 from pypeline.util.context import Context
 
 Result = TypeVar("Result")
@@ -211,7 +210,6 @@ class Operator(Node, Generic[In, Out]):
         raise NotImplementedError
 
     def __sub__(self, other):
-        self.__gt__(other)
         return composition(self, other)
 
     def pretty_string(self) -> str:
@@ -265,18 +263,15 @@ def composition(op_1: Operator[A, B], op_2: Operator[B, C], fail_fast: bool = Tr
     return ComposedOperator()
 
 
-compose = Infix(composition)
-
-
 def compose_list(operators: List[Operator]) -> Operator:
     if len(operators) == 1:
         return operators[0]
     elif len(operators) == 0:
         raise AssertionError("No operator in list")
     else:
-        composed = operators[0] | compose | operators[1]
+        composed = operators[0] - operators[1]
         for op in operators[2:]:
-            composed = composed | compose | op
+            composed = composed - op
         return composed
 
 

@@ -28,8 +28,9 @@ def mk_synchronous_topology(source: Source):
             raise InvalidTopologyError(
                 f'Nodes in synchronous topologies can only have one output, was: {len(curr.outputs)}')
         else:
-            curr = curr.outputs[0]
-            operators.append(curr)
+            curr = list(curr.outputs.values())[0]
+            if isinstance(curr, Operator):
+                operators.append(curr)
     sink = curr
     composed = compose_list(operators)
     return SynchronousTopology(source, composed, sink)
