@@ -63,7 +63,7 @@ class CalculateSpeedOp(Operator[TaxiData, TaxiWithSpeed]):
         self.last_pos = dict()
 
     def apply(self, data: TaxiData, out):
-        print(f'calc speed: {data}')
+        self.logger.info(f'calc speed: {data}')
         last_checkpoint: Checkpoint = self.last_pos.get(data.id, Checkpoint(data.time, data.latitude, data.longitude))
         last_lat = last_checkpoint.latitude
         last_lng = last_checkpoint.longitude
@@ -92,7 +92,7 @@ class AverageSpeedOp(Operator[TaxiWithSpeed, TaxiWithSpeed]):
         self.last_speed = dict()
 
     def apply(self, data: TaxiWithSpeed, out):
-        print(f'average speed: {data}')
+        self.logger.info(f'average speed: {data}')
         n, last_avg = self.last_speed.get(data.data.id, (0, 0))
         if n == 0:
             avg = 0
@@ -111,16 +111,16 @@ class TotalDistanceOp(Operator[TaxiData, TaxiWithDistance]):
         self.last_update = dict()
 
     def open(self):
-        print('Open Total distance')
+        self.logger.info('Open Total distance')
 
     def close(self):
-        print('Close total distance')
+        self.logger.info('Close total distance')
 
     def apply(self, data: TaxiData, out):
-        print(f'total distance: {data}')
-        print(f'total distance sleep for 2 seconds')
+        self.logger.info(f'total distance: {data}')
+        self.logger.info(f'total distance sleep for 2 seconds')
         sleep(2)
-        print(f'total distance woke up')
+        self.logger.info(f'total distance woke up')
         (last_lat, last_lng), total_distance = self.last_update.get(data.id, ((data.latitude, data.longitude), 0))
         distance = haversine(last_lat, last_lng, data.latitude, data.longitude) + total_distance
         self.last_update[data.id] = ((data.latitude, data.longitude), distance)
@@ -151,10 +151,11 @@ class TaxiSource(Source[RawTaxiData]):
             self.data.append(RawTaxiData(id, time, lat, lng))
 
     def read(self, out):
-        print(f'read')
+        self.logger.info(f'read')
         index = self.index
         self.index += 1
         if index >= len(self.data):
+            sleep(5)
             return
         out(self.data[index])
         sleep(5)
@@ -169,28 +170,30 @@ class MeasuredTaxi:
 
 def time_to_unix(data: RawTaxiData) -> TaxiData:
     # 2008-02-02 15:36:08
-    print(f'time2unix: {data}')
+    # print(f'time2unix: {data}')
     time = datetime.strptime(data.time, '%Y-%m-%d %H:%M:%S').timestamp()
     return TaxiData(id=data.id, time=time, longitude=data.longitude, latitude=data.latitude)
 
 
 def merge(items: dict) -> MeasuredTaxi:
-    print(f'merge: {items}')
+    # print(f'merge: {items}')
     speed: TaxiWithSpeed = items[AverageSpeedOp.name]
     distance: TaxiWithDistance = items[TotalDistanceOp.name]
     return MeasuredTaxi(data=speed.data, avg_speed=speed.speed, total_distance=distance.distance)
 
 
 def filter_small_values(taxi: MeasuredTaxi) -> Optional[MeasuredTaxi]:
-    print(f'filter small values: {taxi}')
+    # print(f'filter small values: {taxi}')
     if taxi.avg_speed < 1 or taxi.total_distance < 1:
         return None
     return taxi
 
 
 def persist(taxi):
-    print(f'persist {taxi}')
+    # print(f'persist {taxi}')
+    pass
 
 
 def raw_persist(raw_taxi):
-    print(f'raw persist: {raw_taxi}')
+    # print(f'raw persist: {raw_taxi}')
+    pass

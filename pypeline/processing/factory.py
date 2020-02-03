@@ -11,7 +11,7 @@ from pypeline.processing.sync import SynchronousEnvironment, mk_synchronous_topo
 
 def mk_src(func, node_name: str = None) -> Node:
     if node_name is None:
-        node_name = f'op-{str(time.time_ns())[5:-5]}'
+        node_name = f'source-{str(time.time_ns())[5:-5]}'
 
     class FuncSource(Source):
         name = node_name
@@ -24,7 +24,7 @@ def mk_src(func, node_name: str = None) -> Node:
 
 def mk_sink(func, node_name: str = None) -> Node:
     if node_name is None:
-        node_name = f'op-{str(time.time_ns())[5:-5]}'
+        node_name = f'sink-{str(time.time_ns())[5:-5]}'
 
     class FuncSink(Sink):
         name = node_name
@@ -82,19 +82,19 @@ def thread_factory():
     return factory
 
 
-def mk_parallel_env(sources: List[Source], stop: threading.Event = None,
+def mk_parallel_env(sources: List[Source], stop: multiprocessing.Event = None,
                     logger: logging.Logger = None, task_factory=None) -> ParallelEnvironment:
     if task_factory is None:
         task_factory = process_factory()
 
     if stop is None:
-        stop = threading.Event()
+        stop = multiprocessing.Event()
     top = mk_parallel_topology(sources)
     return ParallelEnvironment(top, stop, task_factory, logger)
 
 
-def mk_synchronous_env(source: Source, stop: threading.Event = None) -> SynchronousEnvironment:
+def mk_synchronous_env(source: Source, stop: multiprocessing.Event = None) -> SynchronousEnvironment:
     if stop is None:
-        stop = threading.Event()
+        stop = multiprocessing.Event()
     top = mk_synchronous_topology(source)
     return SynchronousEnvironment(top, stop)

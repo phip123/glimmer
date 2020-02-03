@@ -12,6 +12,7 @@ Out = TypeVar("Out")
 
 @dataclass
 class ParallelTopology(Topology, Generic[Result, Out]):
+    __POISON__ = 'POISON'
 
     def __init__(self, sources, operators, sinks):
         self.raw_sources = sources
@@ -70,6 +71,17 @@ class ParallelTopology(Topology, Generic[Result, Out]):
         self.operators = operators
         self.sinks = sinks
 
+    @property
+    def nodes(self):
+        all_nodes = self.operators.copy()
+        all_nodes.extend(self.sources)
+        all_nodes.extend(self.sinks)
+        return all_nodes
+
+    def stop_topology(self):
+        for q in self.queues.values():
+            q.put(ParallelTopology.__POISON__)
+
 
 def mk_parallel_topology(start: List[Source]) -> ParallelTopology:
     """
@@ -99,6 +111,21 @@ def mk_parallel_topology(start: List[Source]) -> ParallelTopology:
     return ParallelTopology(sources, list(operators.values()), list(sinks.values()))
 
 
+def get_items(in_qs):
+    items = dict()
+    for node_name, in_q in in_qs:
+        item = in_q.get()
+
+        if item == ParallelTopology.__POISON__:
+            items = ParallelTopology.__POISON__
+            return items
+
+        items[node_name] = item
+    if len(items) == 1:
+        items = list(items.values())[0]
+    return items
+
+
 class OperatorWrapper:
 
     def __init__(self, op: Operator, in_qs: List[Tuple[str, multiprocessing.Queue]],
@@ -111,34 +138,50 @@ class OperatorWrapper:
         self.op = op
         self.in_qs = in_qs
         self.out_qs = out_qs
+        self.closed = False
 
-    def run(self, stop: threading.Event):
-        self.op.logger.debug(f'start operator {self.op.name}')
+    def run(self, stop):
+        self.logger.debug(f'start operator {self.name}')
+        self.open()
+        try:
+            while not stop.is_set():
+                items = get_items(self.in_qs)
+                if items == ParallelTopology.__POISON__:
+                    return
+                self.apply(items, self.publish)
+        except (KeyboardInterrupt, EOFError):
+            return
+        finally:
+            self.logger.warning(f'Shutting down {self.op.name}')
+            self.close()
+
+    def publish(self, out):
+        # TODO maybe make None filtering optional via parameter
+        if out is not None:
+            for out_q in self.out_qs:
+                out_q.put(out)
+
+    @property
+    def logger(self):
+        return self.op.logger
+
+    @property
+    def name(self):
+        return self.op.name
+
+    def open(self):
         self.op.open()
-        while not stop.is_set():
-            try:
-                items = dict()
-                for node_name, in_q in self.in_qs:
-                    in_item = in_q.get()
-                    items[node_name] = in_item
-
-                if len(items) == 1:
-                    items = list(items.values())[0]
-
-                def publish(out):
-                    # TODO maybe make None filtering optional via parameter
-                    if out is not None:
-                        for out_q in self.out_qs:
-                            out_q.put(out)
-
-                self.op.apply(items, publish)
-            except KeyboardInterrupt:
-                self.op.logger.warning(f'Shutting down {self.op.name}')
-                self.op.close()
-                return
 
     def apply(self, data, out):
         return self.op.apply(data, out)
+
+    def close(self):
+        if not self.closed:
+            self.op.close()
+            self.closed = True
+
+    def __str__(self):
+        return str(self.op)
 
 
 class SinkWrapper:
@@ -149,28 +192,47 @@ class SinkWrapper:
 
         self.sink = sink
         self.in_qs = in_qs
+        self.closed = False
 
-    def run(self, stop: threading.Event):
-        self.sink.logger.debug(f'start sink {self.sink.name}')
+    def run(self, stop):
+        self.logger.debug(f'start sink {self.name}')
+        self.open()
+        try:
+            while not stop.is_set():
+                items = get_items(self.in_qs)
+
+                if items == ParallelTopology.__POISON__:
+                    return
+
+                self.write(items)
+        except (KeyboardInterrupt, EOFError):
+            pass
+        finally:
+            self.logger.warning(f'Shutting down {self.sink.name}')
+            self.close()
+            return
+
+    def open(self):
         self.sink.open()
-        while not stop.is_set():
-            try:
-                items = dict()
-                for node_name, in_q in self.in_qs:
-                    item = in_q.get()
-                    items[node_name] = item
-
-                if len(items) == 1:
-                    items = list(items.values())[0]
-
-                self.sink.write(items)
-            except KeyboardInterrupt:
-                self.sink.logger.warning(f'Shutting down {self.sink.name}')
-                self.sink.close()
-                return
 
     def write(self, data):
         self.sink.write(data)
+
+    def close(self):
+        if not self.closed:
+            self.sink.close()
+            self.closed = True
+
+    @property
+    def name(self) -> str:
+        return self.sink.name
+
+    @property
+    def logger(self) -> logging.Logger:
+        return self.sink.logger
+
+    def __str__(self):
+        return str(self.sink)
 
 
 class SourceWrapper:
@@ -180,25 +242,43 @@ class SourceWrapper:
             raise AttributeError(f'Source does not contain any outgoing queues {source.name}')
         self.source = source
         self.out_qs = out_qs
+        self.closed = False
 
-    def run(self, event: multiprocessing.Event):
-        self.source.logger.debug(f'start source {self.source.name}')
-        while not event.is_set():
-            try:
-                def publish(item):
-                    # TODO maybe make None filtering optional via parameter
-                    if item is not None:
-                        for out_q in self.out_qs:
-                            out_q.put(item)
-
-                self.read(publish)
-            except KeyboardInterrupt:
-                self.source.logger.warning(f'Shutting down {self.source.name}')
-                self.source.close()
-                return
+    def run(self, stop):
+        self.logger.debug(f'start source {self.name}')
+        try:
+            while not stop.is_set():
+                self.read(self.publish)
+        except (KeyboardInterrupt, EOFError):
+            pass
+        finally:
+            self.close()
 
     def read(self, out):
         self.source.read(out)
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            self.logger.warning(f'Shutting down {self.name}')
+            self.source.close()
+
+    def publish(self, item):
+        # TODO maybe make None filtering optional via parameter
+        if item is not None:
+            for out_q in self.out_qs:
+                out_q.put(item)
+
+    @property
+    def name(self):
+        return self.source.name
+
+    @property
+    def logger(self):
+        return self.source.logger
+
+    def __str__(self):
+        return str(self.source)
 
 
 class ParallelEnvironment(Generic[Result, Out]):
@@ -222,25 +302,27 @@ class ParallelEnvironment(Generic[Result, Out]):
         self.task_factory = task_factory
         self.logger = logger
         self.stop = stop
+        self.p = None
+        self.nodes = topology.nodes
+        self.closed = False
 
-    def execute(self):
+    def start(self, stop):
+        self.p = multiprocessing.Process(target=self.run, args=(stop,))
+        self.p.start()
+
+    def join(self, timeout: int = None):
+        self.p.join(timeout)
+
+    def run(self, stop: threading.Event):
         processes = []
-        stops = []
-        all_nodes = self.topology.operators
-        all_nodes.extend(self.topology.sources)
-        all_nodes.extend(self.topology.sinks)
-
-        for node in all_nodes:
-            stop = threading.Event()
+        for node in self.topology.nodes:
             processes.append(self.task_factory(node, stop))
-            stops.append(stop)
 
         for p in processes:
             p.start()
 
-        self.logger.debug('Started topology')
-        self.stop.wait()
-        self.logger.debug('Received stop signal, stopping all processes')
-        for stop, p in zip(stops, processes):
-            stop.set()
-            p.join(timeout=5)
+        self.logger.warning('Started topology, watiting for stop signal')
+        stop.wait()
+        self.topology.stop_topology()
+        self.logger.warning('Received stop signal, stopping all processes')
+

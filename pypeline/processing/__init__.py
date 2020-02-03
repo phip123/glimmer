@@ -176,6 +176,8 @@ class Node(abc.ABC):
         self.outputs[node.name] = node
         node.inputs[self.name] = self
 
+    def __str__(self):
+        return self.name
 
 class Source(Node, Generic[Result]):
 

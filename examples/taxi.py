@@ -1,13 +1,14 @@
+import logging
+import multiprocessing
 import threading
+import time
 
 import pypeline.processing.factory as factory
 from examples.taxi.nodes import TaxiSource, CalculateSpeedOp, AverageSpeedOp, TotalDistanceOp, time_to_unix, \
-    filter_small_values, merge, persist
+    filter_small_values, merge, persist, raw_persist
 
 
-def raw_persist(raw_taxi):
-    print(f'raw persist: {raw_taxi}')
-
+logging.basicConfig(level=logging.DEBUG)
 
 def main():
     print("Parallel example - Taxi Topology")
@@ -19,6 +20,7 @@ def main():
                                    \                                        /
                                         Calculate total distance                      
     """
+
     # Define source
     source = TaxiSource()
 
@@ -44,13 +46,18 @@ def main():
     filter_op.send_to(sink)
 
     #  Create execution environment
-    stop = threading.Event()
-    env = factory.mk_parallel_env([source], stop=stop)
-    try:
-        env.execute()
-    except KeyboardInterrupt:
-        print("Stopping pipe")
-        stop.set()
+    stop = multiprocessing.Event()
+    env = factory.mk_parallel_env([source], stop=stop, task_factory=factory.process_factory())
+
+    env.start(stop)
+    print('Hit enter to stop environment')
+    # input()
+    time.sleep(3)
+    stop.set()
+    print('Stopping')
+    # env.close()
+
+
 
 
 if __name__ == '__main__':

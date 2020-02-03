@@ -1,7 +1,7 @@
 import logging
 import logging.config
 import os
-from typing import MutableMapping, Dict
+from typing import MutableMapping, Dict, Optional
 
 import yaml
 from flatten_dict import flatten
@@ -36,6 +36,8 @@ class Context:
     def create_logger(self, name: str) -> logging.Logger:
         return logging.getLogger(name)
 
+    def get(self, key: str) -> Optional:
+        return self.config.get(key)
 
 def merge(ctx: Context, config: dict):
     return Context(ctx.env, config)
