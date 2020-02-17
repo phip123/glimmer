@@ -57,7 +57,7 @@ class ParallelTopologyTest(unittest.TestCase):
         env = factory.mk_parallel_env([source], stop=stop)
 
         # Start execution
-        env.start(stop)
+        env.start()
 
         value = q.get(timeout=2)
         self.assertEqual(value, 2)
@@ -117,7 +117,7 @@ class ParallelTopologyTest(unittest.TestCase):
         env = factory.mk_parallel_env([source1, source2], stop=stop)
 
         # Start execution
-        env.start(stop)
+        env.start()
 
         value = q.get(timeout=2)
         self.assertEqual(value, 3)
@@ -127,6 +127,7 @@ class ParallelTopologyTest(unittest.TestCase):
         class TestSource(Source):
             name = 'test-source'
             sent = False
+
             def read(self, out):
                 if not self.sent:
                     out(1)
@@ -193,7 +194,7 @@ class ParallelTopologyTest(unittest.TestCase):
         env = factory.mk_parallel_env([source], stop=stop)
 
         # Start execution
-        env.start(stop)
+        env.start()
 
         value = q1.get(timeout=2)
         self.assertEqual(value, 2)

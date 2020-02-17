@@ -49,7 +49,7 @@ def main():
     stop = multiprocessing.Event()
     env = factory.mk_parallel_env([source], stop=stop, task_factory=factory.process_factory())
 
-    env.start(stop)
+    env.start()
     print('Hit enter to stop environment')
     # input()
     time.sleep(3)

@@ -1,4 +1,5 @@
 import abc
+import multiprocessing
 from typing import TypeVar, Generic, Dict, List, Callable
 
 from pypeline.util.context import Context
@@ -179,6 +180,7 @@ class Node(abc.ABC):
     def __str__(self):
         return self.name
 
+
 class Source(Node, Generic[Result]):
 
     def read(self, out: Callable[[Result], None]):
@@ -226,15 +228,27 @@ class Environment:
     """An environment repeatedly executes its topology
     """
 
-    def __init__(self, topology: Topology):
+    def __init__(self, topology: Topology, stop: multiprocessing.Event=None):
+        """To stop the environment, set the stop event
+        """
         self.topology = topology
+        self.stop = stop
 
-    def execute(self):
-        """Executes the topology
+    def start(self, use_thread: bool = False):
+        """Starts executing the topology in a separate process, or in a new thread in case the flag is set
         :raises:
             EnvironmentExecutionError: in case there was an error opening, executing or closing the topology
         """
         raise NotImplementedError
+
+    def run(self):
+        """Starts executing the topology in a blocking way.
+        """
+        raise NotImplementedError
+
+    def stop(self):
+        """Stops the execution of the environment
+        """
 
 
 def composition(op_1: Operator[A, B], op_2: Operator[B, C], fail_fast: bool = True) -> Operator[A, C]:

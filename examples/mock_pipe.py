@@ -1,11 +1,11 @@
 import logging
-import sys
-import threading
+import multiprocessing
 import os
+import sys
 
+from examples.mock_nodes import DevSource, DevSink, DevOperator, DevAvgOperator
 from pypeline.processing.operator import LogOperator
 from pypeline.processing.sync import SynchronousEnvironment, SynchronousTopology
-from examples.mock_nodes import DevSource, DevSink, DevOperator, DevAvgOperator
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -24,13 +24,12 @@ class MockApp:
         composed = op1 - op2 - op3
         topology = SynchronousTopology(source, composed, sink)
 
-        stop = threading.Event()
         env = None
         try:
-            env = SynchronousEnvironment(topology, stop)
-            env.execute()
+            env = SynchronousEnvironment(topology)
+            env.run()
         except KeyboardInterrupt:
-            stop.set()
+            env.stop()
             env.close()
 
 

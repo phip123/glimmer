@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import threading
 from dataclasses import dataclass
 from typing import TypeVar, Generic
@@ -42,19 +43,20 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
     Which  means, that blocking operators will bring the whole pipeline to a halt.
     """
 
-    def __init__(self, topology: SynchronousTopology[Result, Out], stop: threading.Event = None,
-                 logger=logging.getLogger(__name__)):
+    def __init__(self, topology: SynchronousTopology[Result, Out],
+                 logger=logging.getLogger(__name__),
+                 skip_none: bool = False):
         """
-        Initializes a pipe
+        Initializes an environment
 
-        :param stop: in case the event is set, the env will stop executing and close the source and sink
         """
         super(SynchronousEnvironment, self).__init__(topology)
         self.source = self.topology.source
         self.operator = self.topology.operator
         self.sink = self.topology.sink
-        self.stop = stop or threading.Event()
         self.logger = logger
+        self.skip_none = skip_none
+        self.p = None
 
     def open(self):
         self.logger.debug('env opens source and sink')
@@ -68,15 +70,24 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
         self.sink.close()
         self.operator.close()
 
-    def execute(self, skip_none: bool = True):
+    def start(self, use_thread: bool = False):
+        if use_thread:
+            self.p = threading.Thread(target=self.run, args=(stop,))
+        else:
+            self.p = multiprocessing.Process(target=self.run, args=(stop,))
+
+        self.p.start()
+
+    def run(self):
         """
-        Executes the topology
-        In case skip_none is False, None will be passed to the operator and to the sink.
-        In case it is set to True, the current iteration will be stopped and a new item will be read
-        """
+            Executes the topology
+            In case skip_none is False, None will be passed to the operator and to the sink.
+            In case it is set to True, the current iteration will be stopped and a new item will be read
+            """
         self.logger.info(f'start executing following topology: {self.pretty_string()}')
+        skip_none = self.skip_none
         self.open()
-        while not self.stop.is_set():
+        while not stop.is_set():
 
             def op_out(data):
                 if skip_none and data is None:
@@ -94,7 +105,7 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
                 self.operator.apply(data, op_out)
 
             self.source.read(read_out)
-
+        self.logger.info('Close topology')
         self.close()
 
     def pretty_string(self):

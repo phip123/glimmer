@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass
 from typing import TypeVar, Generic, List, Tuple, Callable
 
-from pypeline.processing import Topology, Operator, Source, Sink, Node, Executable
+from pypeline.processing import Topology, Operator, Source, Sink, Node, Executable, Environment
 
 Result = TypeVar("Result")
 Out = TypeVar("Out")
@@ -129,22 +129,22 @@ def get_items(in_qs):
 class OperatorWrapper:
 
     def __init__(self, op: Operator, in_qs: List[Tuple[str, multiprocessing.Queue]],
-                 out_qs: List[multiprocessing.Queue]):
+                 out_qs: List[multiprocessing.Queue], stop: multiprocessing.Event):
         if len(in_qs) == 0:
             raise AttributeError(f'Operator does not have any inputs {op.name}')
         if len(out_qs) == 0:
             raise AttributeError(f'Operator does not have any outputs {op.name}')
-
+        self.stop = stop
         self.op = op
         self.in_qs = in_qs
         self.out_qs = out_qs
         self.closed = False
 
-    def run(self, stop):
+    def run(self):
         self.logger.debug(f'start operator {self.name}')
         self.open()
         try:
-            while not stop.is_set():
+            while not self.stop.is_set():
                 items = get_items(self.in_qs)
                 if items == ParallelTopology.__POISON__:
                     return
@@ -186,19 +186,20 @@ class OperatorWrapper:
 
 class SinkWrapper:
 
-    def __init__(self, sink: Sink, in_qs: List[Tuple[str, multiprocessing.Queue]]):
+    def __init__(self, sink: Sink, in_qs: List[Tuple[str, multiprocessing.Queue]], stop: multiprocessing.Event):
         if len(in_qs) == 0:
             raise AttributeError(f'Sink does not have any inputs {sink.name}')
 
+        self.stop = stop
         self.sink = sink
         self.in_qs = in_qs
         self.closed = False
 
-    def run(self, stop):
+    def run(self):
         self.logger.debug(f'start sink {self.name}')
         self.open()
         try:
-            while not stop.is_set():
+            while not self.stop.is_set():
                 items = get_items(self.in_qs)
 
                 if items == ParallelTopology.__POISON__:
@@ -237,17 +238,18 @@ class SinkWrapper:
 
 class SourceWrapper:
 
-    def __init__(self, source: Source, out_qs: List[multiprocessing.Queue]):
+    def __init__(self, source: Source, out_qs: List[multiprocessing.Queue], stop: multiprocessing.Event):
         if len(out_qs) == 0:
             raise AttributeError(f'Source does not contain any outgoing queues {source.name}')
         self.source = source
         self.out_qs = out_qs
+        self.stop = stop
         self.closed = False
 
-    def run(self, stop):
+    def run(self):
         self.logger.debug(f'start source {self.name}')
         try:
-            while not stop.is_set():
+            while not self.stop.is_set():
                 self.read(self.publish)
         except (KeyboardInterrupt, EOFError):
             pass
@@ -281,7 +283,7 @@ class SourceWrapper:
         return str(self.source)
 
 
-class ParallelEnvironment(Generic[Result, Out]):
+class ParallelEnvironment(Environment, Generic[Result, Out]):
     """This environment will execute each node in its own thread. Nodes communicate via multiprocessing.Queue instances
     to publish and receive data. This allows to let each node work at its own pace
     """
@@ -291,38 +293,38 @@ class ParallelEnvironment(Generic[Result, Out]):
         """
         Initializes the environment
         :param topology: the topology that will be executed
-        :param stop: if this event is, the pipe will stop processing and close all nodes
         :param task_factory: factory function that produces from a node and a stop event an executable,
                             i.e.: multiprocessing.Process or threading.Thread
         :param logger
         """
+        super().__init__(topology)
         if logger is None:
             logger = logging.getLogger(__name__)
-        self.topology = topology
         self.task_factory = task_factory
         self.logger = logger
-        self.stop = stop
         self.p = None
+        self.stop = stop
         self.nodes = topology.nodes
-        self.closed = False
 
-    def start(self, stop):
-        self.p = multiprocessing.Process(target=self.run, args=(stop,))
+    def start(self, use_thread: bool = False):
+        if use_thread:
+            self.p = threading.Thread(target=self.run)
+        else:
+            self.p = multiprocessing.Process(target=self.run)
         self.p.start()
 
     def join(self, timeout: int = None):
         self.p.join(timeout)
 
-    def run(self, stop: threading.Event):
+    def run(self):
         processes = []
         for node in self.topology.nodes:
-            processes.append(self.task_factory(node, stop))
+            processes.append(self.task_factory(node, self.stop))
 
         for p in processes:
             p.start()
 
         self.logger.warning('Started topology, watiting for stop signal')
-        stop.wait()
+        self.stop.wait()
         self.topology.stop_topology()
         self.logger.warning('Received stop signal, stopping all processes')
-

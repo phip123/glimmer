@@ -49,8 +49,8 @@ def mk_op(func, node_name: str = None) -> Node:
 
 
 def process_factory():
-    def factory(node, stop):
-        process = multiprocessing.Process(target=node.run, args=(stop,))
+    def factory(node):
+        process = multiprocessing.Process(target=node.run)
 
         class ProcessExecutable(Executable):
 
@@ -66,8 +66,8 @@ def process_factory():
 
 
 def thread_factory():
-    def factory(node, stop):
-        thread = threading.Thread(target=node.run, args=(stop,))
+    def factory(node):
+        thread = threading.Thread(target=node.run)
 
         class ThreadExecutable(Executable):
 

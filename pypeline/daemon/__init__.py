@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import threading
 from typing import List, Optional
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class ControllerDaemon:
 
-    def __init__(self, operator_names: List[str], source_name: str, sink_name: str, stop: threading.Event = None):
+    def __init__(self, operator_names: List[str], source_name: str, sink_name: str, stop: multiprocessing.Event = None):
         self.stop = stop or threading.Event()
         self.operator_names = operator_names
         self.source_name = source_name
@@ -34,7 +35,7 @@ class ControllerDaemon:
 
             self.topology = SynchronousTopology(self.source, composed, self.sink)
             self.env = SynchronousEnvironment(self.topology, self.stop)
-            self.env.execute()
+            self.env.run(self.stop)
         else:
             logger.error("No sink and/or source specified")
             return

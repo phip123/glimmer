@@ -1,4 +1,4 @@
-import threading
+import multiprocessing
 
 import pypeline.processing.factory as factory
 from examples.wordcount.nodes import WordsSource, FlatmapLines, MapWords, Reducer
@@ -36,16 +36,16 @@ def main():
      | sink
      )
 
-    stop = threading.Event()
+    stop = multiprocessing.Event()
 
     # We can deduce from the source all other nodes
     # This creates a topology that will be executed synchronously
-    env = factory.mk_synchronous_env(words, stop=stop)
+    env = factory.mk_synchronous_env(words, stop)
 
     # In case you would like to have all nodes executed in separated threads or processes:
     # env = factory.mk_parallel_env([words], stop=stop)
     try:
-        env.execute()
+        env.run()
     except KeyboardInterrupt:
         stop.set()
     print('Goodbye!')
