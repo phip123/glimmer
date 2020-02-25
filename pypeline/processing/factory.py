@@ -1,17 +1,17 @@
 import logging
 import multiprocessing
 import threading
-import time
 from typing import List
 
 from pypeline.processing import Node, Source, Sink, Operator, Executable
 from pypeline.processing.parallel import ParallelEnvironment, mk_parallel_topology
 from pypeline.processing.sync import SynchronousEnvironment, mk_synchronous_topology
+from pypeline.util import generate_node_name
 
 
 def mk_src(func, node_name: str = None) -> Node:
     if node_name is None:
-        node_name = f'source-{str(time.time_ns())[5:-5]}'
+        node_name = f'source-{generate_node_name()}'
 
     class FuncSource(Source):
         name = node_name
@@ -24,7 +24,7 @@ def mk_src(func, node_name: str = None) -> Node:
 
 def mk_sink(func, node_name: str = None) -> Node:
     if node_name is None:
-        node_name = f'sink-{str(time.time_ns())[5:-5]}'
+        node_name = f'sink-{generate_node_name()}'
 
     class FuncSink(Sink):
         name = node_name
@@ -37,7 +37,7 @@ def mk_sink(func, node_name: str = None) -> Node:
 
 def mk_op(func, node_name: str = None) -> Node:
     if node_name is None:
-        node_name = f'op-{str(time.time_ns())[5:-5]}'
+        node_name = f'op-{generate_node_name()}'
 
     class FuncOp(Operator):
         name = node_name

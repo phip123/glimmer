@@ -17,7 +17,8 @@ class Context:
             - home_controller_log_level (DEBUG|INFO|WARN| ... )
        """
 
-    def __init__(self, env: MutableMapping = os.environ, config: dict = None, config_name: str = None, logging_config: Dict = None):
+    def __init__(self, env: MutableMapping = os.environ, config: dict = None, config_name: str = None,
+                 logging_config: Dict = None):
         super().__init__()
         self.config = config or dict()
         self.env = env
@@ -38,6 +39,7 @@ class Context:
 
     def get(self, key: str) -> Optional:
         return self.config.get(key)
+
 
 def merge(ctx: Context, config: dict):
     return Context(ctx.env, config)

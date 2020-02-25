@@ -116,14 +116,14 @@ class Node(abc.ABC):
         """
         Adds passed nodes or functions as output receiving nodes
         """
-        self._add(other, self._register_output_node, self._register_output_function)
+        self._add(other, self._register_output_node)
         return other
 
     def receive_from(self, other):
         """
         Adds passed nodes or functions as as input for this node
         """
-        self._add(other, self._register_input_node, self._register_input_function)
+        self._add(other, self._register_input_node)
         return self
 
     def __gt__(self, other):
@@ -145,33 +145,21 @@ class Node(abc.ABC):
         return self.send_to(other)
 
     @staticmethod
-    def _add(other, register_node, register_func):
+    def _add(other, register_node):
         if isinstance(other, List):
             for n in other:
-                if isinstance(n, Callable):
-                    register_func(n)
-                elif isinstance(n, Node):
+                if isinstance(n, Node):
                     register_node(n)
                 else:
                     raise AttributeError('Argument not supported as receiver')
         elif isinstance(other, Node):
             register_node(other)
-        elif isinstance(other, Callable):
-            register_func(other)
         else:
             raise AttributeError('Argument not supported as receiver')
 
     def _register_input_node(self, node: 'Node'):
         self.inputs[node.name] = node
         node.outputs[self.name] = self
-
-    def _register_input_function(self, f):
-        # TODO implement
-        raise NotImplementedError
-
-    def _register_output_function(self, node):
-        # TODO implement
-        raise NotImplementedError
 
     def _register_output_node(self, node: 'Node'):
         self.outputs[node.name] = node
