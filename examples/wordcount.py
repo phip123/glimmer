@@ -36,18 +36,16 @@ def main():
      | sink
      )
 
-    stop = multiprocessing.Event()
-
     # We can deduce from the source all other nodes
     # This creates a topology that will be executed synchronously
-    env = factory.mk_synchronous_env(words, stop)
+    env = factory.mk_synchronous_env(words)
 
     # In case you would like to have all nodes executed in separated threads or processes:
-    # env = factory.mk_parallel_env([words], stop=stop)
+    # env = factory.mk_parallel_env([words])
     try:
         env.run()
     except KeyboardInterrupt:
-        stop.set()
+        env.stop()
     print('Goodbye!')
 
 

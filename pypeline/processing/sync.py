@@ -50,7 +50,7 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
         Initializes an environment
 
         """
-        super(SynchronousEnvironment, self).__init__(topology)
+        super(SynchronousEnvironment, self).__init__(topology, multiprocessing.Event())
         self.source = self.topology.source
         self.operator = self.topology.operator
         self.sink = self.topology.sink
@@ -72,9 +72,9 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
 
     def start(self, use_thread: bool = False):
         if use_thread:
-            self.p = threading.Thread(target=self.run, args=(stop,))
+            self.p = threading.Thread(target=self.run)
         else:
-            self.p = multiprocessing.Process(target=self.run, args=(stop,))
+            self.p = multiprocessing.Process(target=self.run)
 
         self.p.start()
 
@@ -87,7 +87,7 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
         self.logger.info(f'start executing following topology: {self.pretty_string()}')
         skip_none = self.skip_none
         self.open()
-        while not stop.is_set():
+        while not self.stop_signal.is_set():
 
             def op_out(data):
                 if skip_none and data is None:
@@ -110,3 +110,8 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
 
     def pretty_string(self):
         return f"{self.source.name} -> {self.operator.pretty_string()} -> {self.sink.name}"
+
+    def stop(self):
+        self.logger.info('Stop environment')
+        self.stop_signal.set()
+

@@ -49,8 +49,8 @@ def mk_op(func, node_name: str = None) -> Node:
 
 
 def process_factory():
-    def factory(node):
-        process = multiprocessing.Process(target=node.run)
+    def factory(node, stop):
+        process = multiprocessing.Process(target=node.run, args=(stop,))
 
         class ProcessExecutable(Executable):
 
@@ -66,8 +66,8 @@ def process_factory():
 
 
 def thread_factory():
-    def factory(node):
-        thread = threading.Thread(target=node.run)
+    def factory(node, stop):
+        thread = threading.Thread(target=node.run, args=(stop,))
 
         class ThreadExecutable(Executable):
 
@@ -82,19 +82,14 @@ def thread_factory():
     return factory
 
 
-def mk_parallel_env(sources: List[Source], stop: multiprocessing.Event = None,
-                    logger: logging.Logger = None, task_factory=None) -> ParallelEnvironment:
+def mk_parallel_env(sources: List[Source], logger: logging.Logger = None, task_factory=None) -> ParallelEnvironment:
     if task_factory is None:
         task_factory = process_factory()
 
-    if stop is None:
-        stop = multiprocessing.Event()
     top = mk_parallel_topology(sources)
-    return ParallelEnvironment(top, stop, task_factory, logger)
+    return ParallelEnvironment(top, task_factory, logger)
 
 
-def mk_synchronous_env(source: Source, stop: multiprocessing.Event = None) -> SynchronousEnvironment:
-    if stop is None:
-        stop = multiprocessing.Event()
+def mk_synchronous_env(source: Source) -> SynchronousEnvironment:
     top = mk_synchronous_topology(source)
-    return SynchronousEnvironment(top, stop)
+    return SynchronousEnvironment(top)

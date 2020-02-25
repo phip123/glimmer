@@ -228,11 +228,11 @@ class Environment:
     """An environment repeatedly executes its topology
     """
 
-    def __init__(self, topology: Topology, stop: multiprocessing.Event=None):
+    def __init__(self, topology: Topology, stop_signal: multiprocessing.Event = None):
         """To stop the environment, set the stop event
         """
         self.topology = topology
-        self.stop = stop
+        self.stop_signal = stop_signal
 
     def start(self, use_thread: bool = False):
         """Starts executing the topology in a separate process, or in a new thread in case the flag is set
@@ -249,6 +249,7 @@ class Environment:
     def stop(self):
         """Stops the execution of the environment
         """
+        raise NotImplementedError
 
 
 def composition(op_1: Operator[A, B], op_2: Operator[B, C], fail_fast: bool = True) -> Operator[A, C]:

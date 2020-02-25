@@ -83,12 +83,29 @@ class ParallelTopology(Topology, Generic[Result, Out]):
             q.put(ParallelTopology.__POISON__)
 
 
-def mk_parallel_topology(start: List[Source]) -> ParallelTopology:
+def _contains_duplicate_node(nodes: List[Node], check: Node):
+    for node in nodes:
+        if node.name == check.name and node is not check:
+            return True
+    return False
+
+
+def _warn_duplicate(nodes: List[Node], logger: logging.Logger):
+    already_logged = dict()
+    for node in nodes:
+        if _contains_duplicate_node(nodes, node) and already_logged.get(node.name) is None:
+            already_logged[node.name] = True
+            logger.warning(f'Topology was initialized twice with the same name "{node.name}".'
+                           f'Nodes must have unique names, so check if there are any with the same name.')
+
+
+def mk_parallel_topology(start: List[Source], logger: logging.Logger = logging.getLogger(__name__)) -> ParallelTopology:
     """
     Helper function to generate a topology from a list of initialized sources.
     Goes through the topology in a breadth-first manner to look for all nodes used.
     """
     sources = start
+    _warn_duplicate(sources, logger)
     operators = dict()
     sinks = dict()
 
@@ -129,22 +146,21 @@ def get_items(in_qs):
 class OperatorWrapper:
 
     def __init__(self, op: Operator, in_qs: List[Tuple[str, multiprocessing.Queue]],
-                 out_qs: List[multiprocessing.Queue], stop: multiprocessing.Event):
+                 out_qs: List[multiprocessing.Queue]):
         if len(in_qs) == 0:
             raise AttributeError(f'Operator does not have any inputs {op.name}')
         if len(out_qs) == 0:
             raise AttributeError(f'Operator does not have any outputs {op.name}')
-        self.stop = stop
         self.op = op
         self.in_qs = in_qs
         self.out_qs = out_qs
         self.closed = False
 
-    def run(self):
+    def run(self, stop: multiprocessing.Event):
         self.logger.debug(f'start operator {self.name}')
         self.open()
         try:
-            while not self.stop.is_set():
+            while not stop.is_set():
                 items = get_items(self.in_qs)
                 if items == ParallelTopology.__POISON__:
                     return
@@ -186,20 +202,19 @@ class OperatorWrapper:
 
 class SinkWrapper:
 
-    def __init__(self, sink: Sink, in_qs: List[Tuple[str, multiprocessing.Queue]], stop: multiprocessing.Event):
+    def __init__(self, sink: Sink, in_qs: List[Tuple[str, multiprocessing.Queue]]):
         if len(in_qs) == 0:
             raise AttributeError(f'Sink does not have any inputs {sink.name}')
 
-        self.stop = stop
         self.sink = sink
         self.in_qs = in_qs
         self.closed = False
 
-    def run(self):
+    def run(self, stop: multiprocessing.Event):
         self.logger.debug(f'start sink {self.name}')
         self.open()
         try:
-            while not self.stop.is_set():
+            while not stop.is_set():
                 items = get_items(self.in_qs)
 
                 if items == ParallelTopology.__POISON__:
@@ -238,18 +253,17 @@ class SinkWrapper:
 
 class SourceWrapper:
 
-    def __init__(self, source: Source, out_qs: List[multiprocessing.Queue], stop: multiprocessing.Event):
+    def __init__(self, source: Source, out_qs: List[multiprocessing.Queue]):
         if len(out_qs) == 0:
             raise AttributeError(f'Source does not contain any outgoing queues {source.name}')
         self.source = source
         self.out_qs = out_qs
-        self.stop = stop
         self.closed = False
 
-    def run(self):
+    def run(self, stop: multiprocessing.Event):
         self.logger.debug(f'start source {self.name}')
         try:
-            while not self.stop.is_set():
+            while not stop.is_set():
                 self.read(self.publish)
         except (KeyboardInterrupt, EOFError):
             pass
@@ -288,8 +302,8 @@ class ParallelEnvironment(Environment, Generic[Result, Out]):
     to publish and receive data. This allows to let each node work at its own pace
     """
 
-    def __init__(self, topology: ParallelTopology, stop: threading.Event,
-                 task_factory: Callable[[Node, threading.Event], Executable], logger: logging.Logger = None):
+    def __init__(self, topology: ParallelTopology,
+                 task_factory: Callable[[Node, multiprocessing.Event], Executable], logger: logging.Logger = None):
         """
         Initializes the environment
         :param topology: the topology that will be executed
@@ -297,13 +311,12 @@ class ParallelEnvironment(Environment, Generic[Result, Out]):
                             i.e.: multiprocessing.Process or threading.Thread
         :param logger
         """
-        super().__init__(topology)
+        super().__init__(topology, multiprocessing.Event())
         if logger is None:
             logger = logging.getLogger(__name__)
         self.task_factory = task_factory
         self.logger = logger
         self.p = None
-        self.stop = stop
         self.nodes = topology.nodes
 
     def start(self, use_thread: bool = False):
@@ -319,12 +332,16 @@ class ParallelEnvironment(Environment, Generic[Result, Out]):
     def run(self):
         processes = []
         for node in self.topology.nodes:
-            processes.append(self.task_factory(node, self.stop))
+            processes.append(self.task_factory(node, self.stop_signal))
 
         for p in processes:
             p.start()
 
         self.logger.warning('Started topology, watiting for stop signal')
-        self.stop.wait()
+        self.stop_signal.wait()
         self.topology.stop_topology()
         self.logger.warning('Received stop signal, stopping all processes')
+
+    def stop(self):
+        self.logger.info('Stop environment')
+        self.stop_signal.set()

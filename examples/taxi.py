@@ -46,14 +46,13 @@ def main():
     filter_op.send_to(sink)
 
     #  Create execution environment
-    stop = multiprocessing.Event()
-    env = factory.mk_parallel_env([source], stop=stop, task_factory=factory.process_factory())
+    env = factory.mk_parallel_env([source], task_factory=factory.process_factory())
 
     env.start()
     print('Hit enter to stop environment')
     # input()
     time.sleep(3)
-    stop.set()
+    env.stop()
     print('Stopping')
     # env.close()
 
