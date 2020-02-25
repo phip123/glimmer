@@ -2,9 +2,9 @@ import logging
 import multiprocessing
 import unittest
 
-import pypeline.processing.factory as factory
-from pypeline.processing import Source, Operator, Sink
-from pypeline.util.context import Context
+import glimmer.processing.factory as factory
+from glimmer.processing import Source, Operator, Sink
+from glimmer.util.context import Context
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -61,6 +61,7 @@ class ParallelTopologyTest(unittest.TestCase):
         value = q.get(timeout=2)
         self.assertEqual(value, 2)
         env.stop()
+        env.close()
 
     def test_multiple_sources_single_sink(self):
         class TestSource1(Source):
@@ -120,6 +121,7 @@ class ParallelTopologyTest(unittest.TestCase):
         value = q.get(timeout=2)
         self.assertEqual(value, 3)
         env.stop()
+        env.close()
 
     def test_single_source_multiple_sinks(self):
         class TestSource(Source):
@@ -200,6 +202,7 @@ class ParallelTopologyTest(unittest.TestCase):
         self.assertEqual(value, -2)
 
         env.stop()
+        env.close()
 
     def test_multiple_sources_multiple_sinks(self):
         class TestSource1(Source):
@@ -291,3 +294,4 @@ class ParallelTopologyTest(unittest.TestCase):
         self.assertEqual(value, -2)
 
         env.stop()
+        env.close()

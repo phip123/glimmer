@@ -4,8 +4,8 @@ import os
 import sys
 
 from examples.mock_nodes import DevSource, DevSink, DevOperator, DevAvgOperator
-from pypeline.processing.operator import LogOperator
-from pypeline.processing.sync import SynchronousEnvironment, SynchronousTopology
+from glimmer.processing.operator import LogOperator
+from glimmer.processing.sync import SynchronousEnvironment, SynchronousTopology
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)

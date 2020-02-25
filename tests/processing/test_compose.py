@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
-from pypeline.processing import Operator, In, composition
+from glimmer.processing import Operator, In, composition
 
 
 class Op(Operator):

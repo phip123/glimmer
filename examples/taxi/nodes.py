@@ -4,8 +4,8 @@ from datetime import datetime
 from time import sleep
 from typing import Optional
 
-from pypeline.processing import Source, Operator
-from pypeline.util.context import Context
+from glimmer.processing import Source, Operator
+from glimmer.util.context import Context
 
 
 @dataclass

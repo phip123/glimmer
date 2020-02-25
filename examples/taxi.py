@@ -1,14 +1,11 @@
 import logging
-import multiprocessing
-import threading
-import time
 
-import pypeline.processing.factory as factory
+import glimmer.processing.factory as factory
 from examples.taxi.nodes import TaxiSource, CalculateSpeedOp, AverageSpeedOp, TotalDistanceOp, time_to_unix, \
     filter_small_values, merge, persist, raw_persist
 
-
 logging.basicConfig(level=logging.DEBUG)
+
 
 def main():
     print("Parallel example - Taxi Topology")
@@ -50,13 +47,9 @@ def main():
 
     env.start()
     print('Hit enter to stop environment')
-    # input()
-    time.sleep(3)
+    input()
     env.stop()
     print('Stopping')
-    # env.close()
-
-
 
 
 if __name__ == '__main__':

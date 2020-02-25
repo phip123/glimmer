@@ -1,8 +1,8 @@
 import multiprocessing
 
-import pypeline.processing.factory as factory
+import glimmer.processing.factory as factory
 from examples.wordcount.nodes import WordsSource, FlatmapLines, MapWords, Reducer
-from pypeline.util.context import Context
+from glimmer.util.context import Context
 
 
 def main():

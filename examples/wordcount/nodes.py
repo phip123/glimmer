@@ -1,8 +1,8 @@
 from time import sleep
 from typing import Callable, List, Tuple
 
-from pypeline.processing import Source, Operator
-from pypeline.util.context import Context
+from glimmer.processing import Source, Operator
+from glimmer.util.context import Context
 
 
 class Reducer(Operator[Tuple[str, int], Tuple[str, int]]):

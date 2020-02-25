@@ -3,13 +3,13 @@ import multiprocessing
 import threading
 from typing import List
 
-from pypeline.processing import Node, Source, Sink, Operator, Executable
-from pypeline.processing.parallel import ParallelEnvironment, mk_parallel_topology
-from pypeline.processing.sync import SynchronousEnvironment, mk_synchronous_topology
-from pypeline.util import generate_node_name
+from glimmer.processing import Source, Sink, Operator, Executable
+from glimmer.processing.parallel import ParallelEnvironment, mk_parallel_topology
+from glimmer.processing.sync import SynchronousEnvironment, mk_synchronous_topology
+from glimmer.util import generate_node_name
 
 
-def mk_src(func, node_name: str = None) -> Node:
+def mk_src(func, node_name: str = None) -> Source:
     if node_name is None:
         node_name = f'source-{generate_node_name()}'
 
@@ -22,7 +22,7 @@ def mk_src(func, node_name: str = None) -> Node:
     return FuncSource()
 
 
-def mk_sink(func, node_name: str = None) -> Node:
+def mk_sink(func, node_name: str = None) -> Sink:
     if node_name is None:
         node_name = f'sink-{generate_node_name()}'
 
@@ -35,7 +35,7 @@ def mk_sink(func, node_name: str = None) -> Node:
     return FuncSink()
 
 
-def mk_op(func, node_name: str = None) -> Node:
+def mk_op(func, node_name: str = None) -> Operator:
     if node_name is None:
         node_name = f'op-{generate_node_name()}'
 
@@ -90,6 +90,6 @@ def mk_parallel_env(sources: List[Source], logger: logging.Logger = None, task_f
     return ParallelEnvironment(top, task_factory, logger)
 
 
-def mk_synchronous_env(source: Source) -> SynchronousEnvironment:
+def mk_synchronous_env(source: Source, logger: logging.Logger = None, skip_none: bool = None) -> SynchronousEnvironment:
     top = mk_synchronous_topology(source)
-    return SynchronousEnvironment(top)
+    return SynchronousEnvironment(top, logger, skip_none)

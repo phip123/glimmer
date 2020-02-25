@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass
 from typing import TypeVar, Generic, List, Tuple, Callable
 
-from pypeline.processing import Topology, Operator, Source, Sink, Node, Executable, Environment
+from glimmer.processing import Topology, Operator, Source, Sink, Node, Executable, Environment
 
 Result = TypeVar("Result")
 Out = TypeVar("Out")
@@ -81,6 +81,7 @@ class ParallelTopology(Topology, Generic[Result, Out]):
     def stop_topology(self):
         for q in self.queues.values():
             q.put(ParallelTopology.__POISON__)
+
 
 
 def _contains_duplicate_node(nodes: List[Node], check: Node):
@@ -168,7 +169,6 @@ class OperatorWrapper:
         except (KeyboardInterrupt, EOFError):
             return
         finally:
-            self.logger.warning(f'Shutting down {self.op.name}')
             self.close()
 
     def publish(self, out):
@@ -193,6 +193,7 @@ class OperatorWrapper:
 
     def close(self):
         if not self.closed:
+            self.logger.warning(f'Shutting down {self.op.name}')
             self.op.close()
             self.closed = True
 
@@ -224,7 +225,6 @@ class SinkWrapper:
         except (KeyboardInterrupt, EOFError):
             pass
         finally:
-            self.logger.warning(f'Shutting down {self.sink.name}')
             self.close()
             return
 
@@ -236,8 +236,9 @@ class SinkWrapper:
 
     def close(self):
         if not self.closed:
-            self.sink.close()
             self.closed = True
+            self.logger.warning(f'Shutting down {self.sink.name}')
+            self.sink.close()
 
     @property
     def name(self) -> str:
@@ -345,3 +346,7 @@ class ParallelEnvironment(Environment, Generic[Result, Out]):
     def stop(self):
         self.logger.info('Stop environment')
         self.stop_signal.set()
+
+    def close(self):
+        for node in self.nodes:
+            node.close()

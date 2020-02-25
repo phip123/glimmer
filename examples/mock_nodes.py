@@ -4,8 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Optional, List
 
-from pypeline.processing import Source, Sink, Operator
-from pypeline.util import EnhancedJSONEncoder
+from glimmer.processing import Source, Sink, Operator
+from glimmer.util import EnhancedJSONEncoder
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass
 from typing import TypeVar, Generic
 
-from pypeline.processing import Source, Operator, Sink, Environment, Topology, InvalidTopologyError, compose_list
+from glimmer.processing import Source, Operator, Sink, Environment, Topology, InvalidTopologyError, compose_list
 
 Result = TypeVar("Result")
 Out = TypeVar("Out")
@@ -51,6 +51,8 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
 
         """
         super(SynchronousEnvironment, self).__init__(topology, multiprocessing.Event())
+        if logger is None:
+            logger = logging.getLogger(__name__)
         self.source = self.topology.source
         self.operator = self.topology.operator
         self.sink = self.topology.sink
@@ -59,13 +61,12 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
         self.p = None
 
     def open(self):
-        self.logger.debug('env opens source and sink')
+        self.logger.info('env opens nodes')
         self.source.open()
         self.sink.open()
         self.operator.open()
 
     def close(self):
-        self.logger.debug('env closes source and sink')
         self.source.close()
         self.sink.close()
         self.operator.close()
@@ -87,26 +88,28 @@ class SynchronousEnvironment(Environment, Generic[Result, Out]):
         self.logger.info(f'start executing following topology: {self.pretty_string()}')
         skip_none = self.skip_none
         self.open()
-        while not self.stop_signal.is_set():
+        try:
+            while not self.stop_signal.is_set():
 
-            def op_out(data):
-                if skip_none and data is None:
-                    self.logger.warning('Operator returned None')
+                def op_out(data):
+                    if skip_none and data is None:
+                        self.logger.warning('Operator returned None')
 
-                self.logger.debug(f'data after applying {self.operator.name}: {data}')
-                self.logger.debug('write data to sink')
-                self.sink.write(data)
+                    self.logger.debug(f'data after applying {self.operator.name}: {data}')
+                    self.logger.debug('write data to sink')
+                    self.sink.write(data)
 
-            def read_out(data):
-                if skip_none and data is None:
-                    self.logger.warning('Source returned None')
+                def read_out(data):
+                    if skip_none and data is None:
+                        self.logger.warning('Source returned None')
 
-                self.logger.debug(f'process data: {data}')
-                self.operator.apply(data, op_out)
+                    self.logger.debug(f'process data: {data}')
+                    self.operator.apply(data, op_out)
 
-            self.source.read(read_out)
-        self.logger.info('Close topology')
-        self.close()
+                self.source.read(read_out)
+        finally:
+            self.logger.info('Close topology')
+            self.close()
 
     def pretty_string(self):
         return f"{self.source.name} -> {self.operator.pretty_string()} -> {self.sink.name}"

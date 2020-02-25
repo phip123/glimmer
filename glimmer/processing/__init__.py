@@ -2,7 +2,7 @@ import abc
 import multiprocessing
 from typing import TypeVar, Generic, Dict, List, Callable
 
-from pypeline.util.context import Context
+from glimmer.util.context import Context
 
 Result = TypeVar("Result")
 In = TypeVar("In")

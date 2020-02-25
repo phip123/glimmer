@@ -2,8 +2,8 @@ import json
 from json import JSONDecodeError
 from typing import Callable
 
-from pypeline.processing import Operator, In, Out
-from pypeline.util import EnhancedJSONEncoder
+from glimmer.processing import Operator, In, Out
+from glimmer.util import EnhancedJSONEncoder
 
 
 class LogOperator(Operator[In, Out]):
