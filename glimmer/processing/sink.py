@@ -1,5 +1,5 @@
-from pypeline.processing import Sink
-from pypeline.util.context import Context
+from glimmer.processing import Sink
+from glimmer.util.context import Context
 
 
 class NoopSink(Sink):
